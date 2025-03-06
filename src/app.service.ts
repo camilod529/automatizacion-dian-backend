@@ -1,13 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-misused-promises */
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { exec } from 'child_process';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
 @Injectable()
 export class AppService {
+  private readonly logger = new Logger(AppService.name);
+  private readonly basePath = '/home/camilo/code/robot-framework-test';
+  private readonly logsPath = path.join(this.basePath, 'logs');
+  private readonly outputFilePath = path.join(
+    this.logsPath,
+    'robot_output.json',
+  );
+  private readonly testsPath = path.join(this.basePath, 'tests');
+  private readonly pythonPath = path.join(this.basePath, 'venv/bin/python');
+
   getHello(): string {
     return 'Hello World!';
   }
@@ -15,47 +29,58 @@ export class AppService {
   async executeRobotTest(
     url: string,
   ): Promise<{ success: boolean; output: string; stats?: any }> {
-    return new Promise((resolve) => {
-      const logsPath = '/home/camilo/code/robot-framework-test/logs';
-      const outputFilePath = path.join(logsPath, 'robot_output.json');
+    const command = `${this.pythonPath} -m robot --variable "URL:${url}" --outputdir ${this.logsPath} --loglevel DEBUG --output ${this.outputFilePath} ${this.testsPath}`;
 
-      const command = `/home/camilo/code/robot-framework-test/venv/bin/python -m robot --variable "URL:${url}" --outputdir ${logsPath} --loglevel DEBUG --output ${outputFilePath} /home/camilo/code/robot-framework-test/tests/`;
+    this.logger.log(`Ejecutando comando: ${command}`);
 
-      console.log(`Ejecutando comando: ${command}`);
+    try {
+      const { stdout, stderr } = await this.execCommand(command);
+      this.logger.log(`stdout: ${stdout}`);
+      if (stderr) this.logger.warn(`stderr: ${stderr}`);
 
-      exec(command, async (error, stdout, stderr) => {
+      const stats = await this.readAndParseOutput();
+      return { success: stats.total.pass > 0, output: stdout, stats };
+    } catch (error) {
+      this.logger.error('Error ejecutando prueba Robot:', error);
+      throw new InternalServerErrorException('Error ejecutando prueba Robot');
+    }
+  }
+
+  private execCommand(
+    command: string,
+  ): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+      exec(command, (error, stdout, stderr) => {
         if (error) {
-          console.error(`Error en ejecución: ${stderr}`);
-          return resolve({ success: false, output: stderr });
+          return reject(
+            new InternalServerErrorException(
+              `Error en ejecución: ${error.message}`,
+            ),
+          );
         }
-
-        console.log(`stdout: ${stdout}`);
-        console.error(`stderr: ${stderr}`);
-
-        try {
-          // Verificar si el archivo de salida existe
-          await fs.access(outputFilePath);
-
-          // Leer y parsear el JSON
-          const data = await fs.readFile(outputFilePath, 'utf8');
-          const jsonData = JSON.parse(data);
-
-          if (!jsonData.statistics) {
-            throw new Error('El JSON no contiene estadísticas válidas.');
-          }
-
-          console.log('Statistics:', jsonData.statistics);
-
-          return resolve({
-            success: true,
-            output: stdout,
-            stats: jsonData.statistics,
-          });
-        } catch (fileError) {
-          console.error(`Error leyendo o procesando el JSON: ${fileError}`);
-          return resolve({ success: true, output: stdout, stats: null });
-        }
+        resolve({ stdout, stderr });
       });
     });
+  }
+
+  private async readAndParseOutput(): Promise<any> {
+    try {
+      await fs.access(this.outputFilePath);
+      const data = await fs.readFile(this.outputFilePath, 'utf8');
+      const jsonData = JSON.parse(data);
+
+      if (!jsonData.statistics) {
+        throw new BadRequestException(
+          'El JSON no contiene estadísticas válidas.',
+        );
+      }
+
+      return jsonData.statistics;
+    } catch (error) {
+      this.logger.error('Error leyendo o procesando el JSON:', error);
+      throw new InternalServerErrorException(
+        'Error procesando el resultado de la prueba',
+      );
+    }
   }
 }
