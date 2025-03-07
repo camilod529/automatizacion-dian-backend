@@ -24,7 +24,7 @@ Este es un proyecto de backend desarrollado con [NestJS](https://nestjs.com/). L
 1. **Clona el repositorio:**
 
    ```bash
-   git clone https://tu-repositorio-url.git
+   git clone https://github.com/camilod529/automatizacion-dian-backend.git backend
    cd backend
    ```
 
