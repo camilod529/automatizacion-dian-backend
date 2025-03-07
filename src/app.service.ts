@@ -13,7 +13,8 @@ import * as path from 'path';
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
-  private readonly basePath = '/home/opc/dian_automatization/robot';
+  private readonly basePath =
+    process.env.ROBOT_PATH ?? '/home/opc/dian_automatization/robot';
   private readonly logsPath = path.join(this.basePath, 'logs');
   private readonly outputFilePath = path.join(
     this.logsPath,
@@ -31,12 +32,13 @@ export class AppService {
     const dockerCommand = `docker run --rm \
       --user $(id -u):$(id -g) \
       --network=host \
-      -v /home/opc/dian_automatization/robot/logs:/opt/robotframework/results:Z \
-      -v /home/opc/dian_automatization/robot/tests:/opt/robotframework/tests:Z \
-      -v /home/opc/dian_automatization/robot/resources:/opt/robotframework/resources:Z \
-      -v /home/opc/dian_automatization/robot/libs:/opt/robotframework/libs:Z \
-      -e 'ROBOT_OPTIONS=--variable URL:"${url}" --outputdir /opt/robotframework/results --loglevel DEBUG' \
+      -v ${this.basePath}/logs:/opt/robotframework/results:Z \
+      -v ${this.basePath}/tests:/opt/robotframework/tests:Z \
+      -v ${this.basePath}/resources:/opt/robotframework/resources:Z \
+      -v ${this.basePath}/libs:/opt/robotframework/libs:Z \
+      -e 'ROBOT_OPTIONS=--variable URL:${url} --outputdir /opt/robotframework/results --loglevel DEBUG' \
       ppodgorsek/robot-framework`;
+    // const dockerCommand = `docker run hello-world`;
 
     this.logger.log(`Ejecutando comando Docker: ${dockerCommand}`);
 
@@ -45,8 +47,9 @@ export class AppService {
       this.logger.log(`stdout: ${stdout}`);
       if (stderr) this.logger.warn(`stderr: ${stderr}`);
 
-      const stats = await this.readAndParseOutput();
-      return { success: stats.total.pass > 0, output: stdout, stats };
+      // const stats = await this.readAndParseOutput();
+      // return { success: stats.total.pass > 0, output: stdout, stats };
+      return { success: true, output: stdout };
     } catch (error) {
       this.logger.error('Error ejecutando prueba Robot en Docker:', error);
       throw new InternalServerErrorException('Error ejecutando prueba Robot');
