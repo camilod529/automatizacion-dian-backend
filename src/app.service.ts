@@ -15,23 +15,28 @@ export class AppService {
   private readonly logger = new Logger(AppService.name);
   private readonly basePath = '/home/opc/dian_automatization/robot';
   private readonly logsPath = path.join(this.basePath, 'logs');
-  private readonly outputFilePath = path.join(this.logsPath, 'robot_output.json');
+  private readonly outputFilePath = path.join(
+    this.logsPath,
+    'robot_output.json',
+  );
   private readonly testsPath = path.join(this.basePath, 'tests');
 
   getHello(): string {
     return 'Hello World!';
   }
 
-  async executeRobotTest(url: string): Promise<{ success: boolean; output: string; stats?: any }> {
+  async executeRobotTest(
+    url: string,
+  ): Promise<{ success: boolean; output: string; stats?: any }> {
     const dockerCommand = `docker run --rm \
       --user $(id -u):$(id -g) \
       --network=host \
-      -v ${this.logsPath}:/opt/robotframework/results:Z \
-      -v ${this.testsPath}:/opt/robotframework/tests:Z \
-      ppodgorsek/robot-framework \
-      --variable "URL:${url}" \
-      --outputdir /opt/robotframework/results \
-      --loglevel DEBUG`;
+      -v /home/opc/dian_automatization/robot/logs:/opt/robotframework/results:Z \
+      -v /home/opc/dian_automatization/robot/tests:/opt/robotframework/tests:Z \
+      -v /home/opc/dian_automatization/robot/resources:/opt/robotframework/resources:Z \
+      -v /home/opc/dian_automatization/robot/libs:/opt/robotframework/libs:Z \
+      -e 'ROBOT_OPTIONS=--variable URL:"${url}" --outputdir /opt/robotframework/results --loglevel DEBUG' \
+      ppodgorsek/robot-framework`;
 
     this.logger.log(`Ejecutando comando Docker: ${dockerCommand}`);
 
@@ -48,12 +53,16 @@ export class AppService {
     }
   }
 
-  private execCommand(command: string): Promise<{ stdout: string; stderr: string }> {
+  private execCommand(
+    command: string,
+  ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       exec(command, (error, stdout, stderr) => {
         if (error) {
           return reject(
-            new InternalServerErrorException(`Error en ejecución: ${error.message}`),
+            new InternalServerErrorException(
+              `Error en ejecución: ${error.message}`,
+            ),
           );
         }
         resolve({ stdout, stderr });
@@ -68,13 +77,17 @@ export class AppService {
       const jsonData = JSON.parse(data);
 
       if (!jsonData.statistics) {
-        throw new BadRequestException('El JSON no contiene estadísticas válidas.');
+        throw new BadRequestException(
+          'El JSON no contiene estadísticas válidas.',
+        );
       }
 
       return jsonData.statistics;
     } catch (error) {
       this.logger.error('Error leyendo o procesando el JSON:', error);
-      throw new InternalServerErrorException('Error procesando el resultado de la prueba');
+      throw new InternalServerErrorException(
+        'Error procesando el resultado de la prueba',
+      );
     }
   }
 }
