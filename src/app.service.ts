@@ -224,9 +224,9 @@ export class AppService {
 
         // Buscar el patrón UUID en los mensajes encontrados, empezando por los de mayor prioridad
         for (const messageObj of uuidMessages) {
-          const uuidMatch = messageObj.message.match(
+          const uuidMatch = RegExp(
             /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i,
-          );
+          ).exec(messageObj.message);
           if (uuidMatch) {
             return uuidMatch[0];
           }
