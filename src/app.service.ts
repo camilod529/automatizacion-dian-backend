@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   InternalServerErrorException,
@@ -24,9 +26,7 @@ export class AppService {
     return 'Hello World!';
   }
 
-  async executeRobotTest(
-    url: string,
-  ): Promise<{
+  async executeRobotTest(url: string): Promise<{
     success: boolean;
     stats?: any;
     errorMessage?: string;
@@ -126,7 +126,7 @@ export class AppService {
   private execCommand(
     command: string,
   ): Promise<{ stdout: string; stderr: string }> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       exec(command, (error, stdout, stderr) => {
         if (error) {
           this.logger.error(`Error en ejecución de comando: ${error.message}`);
